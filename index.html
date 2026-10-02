@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Control de Acceso Vehicular - Gama 85</title>
+  <!-- Librería externa para exportar a Excel con formato y estilos (.xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <style>
+    * { 
+      box-sizing: border-box; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      margin: 0;
+      padding: 0;
+    }
+    
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden; /* Evita desplazamientos globales fuera del marco */
+      background: #d90000; 
+    }
+
+    body { 
+      color: #f8fafc; 
+      padding: 8px; /* Borde rojo delgado */
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+    }
+    
+    /* Pantalla de Carga */
+    #loader-screen { 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100vw; 
+      height: 100dvh; 
+      background: #000000; 
+      z-index: 9999; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      align-items: center; 
+      padding: 20px;
+      transition: opacity 1.41s ease; 
+    }
+
+    .loader-logo { 
+      width: 75%; 
+      max-width: 260px; 
+      height: auto; 
+      margin-bottom: 15px; 
+    }
+
+    .loader-title { 
+      font-size: 16px; 
+      font-weight: bold; 
+      margin-bottom: 15px; 
+      color: #38bdf8; 
+      letter-spacing: 1px; 
+      text-align: center; 
+    }
+
+    .progress-container { 
+      width: 85%; 
+      max-width: 300px; 
+      background: #111827; 
+      border-radius: 20px; 
+      height: 12px; 
+      overflow: hidden; 
+      border: 1px solid #1e293b; 
+    }
+
+    .progress-bar { 
+      width: 0%; 
+      height: 100%; 
+      background: linear-gradient(90deg, #3b82f6, #06b6d4); 
+      transition: width 0.0s linear; 
+    }
+
+    .progress-text { 
+      margin-top: 8px; 
+      font-size: 12px; 
+      color: #94a3b8; 
+    }
+
+    /* Tarjetas de Interfaz Contenidas dentro de la pantalla */
+    .card { 
+      background: #000000; 
+      border-radius: 16px; 
+      width: 100%; 
+      max-width: 420px; 
+      height: calc(100dvh - 16px); 
+      max-height: calc(100dvh - 16px);
+      padding: 20px 16px; 
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.15); 
+      border: 1px solid #1e293b; 
+      display: none; 
+      position: relative; 
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-y: auto; /* Permite scroll interno si los campos sobrepasan la altura */
+    }
+
+    /* Menú Inicial y Login Guardia centrados */
+    #menuAccesoCard, #loginGuardiaCard {
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #adminPanelCard, #historicoCard {
+      justify-content: space-between;
+    }
+    
+    .main-logo-container { 
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-grow: 1;
+      width: 100%;
+    }
+
+    .main-logo { 
+      width: 80%; 
+      max-width: 260px; 
+      height: auto; 
+    }
+
+    h2 { margin-top: 0; text-align: center; color: #38bdf8; font-size: 20px; }
+    h3 { color: #f59e0b; font-size: 17px; margin-top: 0; text-align: center; }
+    
+    /* Subtítulo del Turno con línea divisoria fina */
+    .turno-subtitulo-container {
+      text-align: center;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 6px;
+    }
+    .turno-subtitulo-text {
+      color: #f59e0b;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group { margin-bottom: 10px; text-align: left; }
+    label { font-size: 11px; font-weight: 600; color: #94a3b8; display: block; margin-bottom: 4px; text-transform: uppercase; }
+    input, select { width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 13px; outline: none; }
+    input:focus, select:focus { border-color: #38bdf8; }
+
+    /* Checkbox de Permisos */
+    .permisos-container {
+      background: #111827;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      margin-top: 6px;
+    }
+    .permiso-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: #cbd5e1;
+      cursor: pointer;
+    }
+    .permiso-item:last-child { margin-bottom: 0; }
+    .permiso-item input[type="checkbox"] {
+      width: auto;
+      cursor: pointer;
+    }
+
+    /* Acordeón */
+    .accordion-card { 
+      background: #162032; 
+      border: 1px solid #1e293b; 
+      border-radius: 8px; 
+      margin-bottom: 10px; 
+      overflow: hidden; 
+    }
+    .accordion-header { 
+      padding: 12px 14px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      cursor: pointer; 
+      user-select: none; 
+      background: #162032; 
+    }
+    .accordion-header:hover { background: #1e293b; }
+    .accordion-title-container { display: flex; align-items: center; gap: 8px; }
+    .accordion-icon { width: 16px; height: 16px; fill: currentColor; display: inline-block; flex-shrink: 0; }
+    .accordion-content { 
+      max-height: 0; 
+      overflow: hidden; 
+      transition: max-height 0.3s ease-in-out, padding 0.3s ease; 
+      padding: 0 14px; 
+      background: #000000; 
+    }
+    .accordion-card.active .accordion-content { 
+      max-height: 800px; 
+      padding: 12px; 
+      border-top: 1px solid #1e293b;
+    }
+    .accordion-arrow { font-size: 11px; color: #94a3b8; transition: transform 0.3s; }
+    .accordion-card.active .accordion-arrow { transform: rotate(180deg); }
+
+    /* Botones */
+    .btn-group { display: flex; gap: 8px; margin-top: 10px; }
+    button { flex: 1; padding: 11px; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; color: white; }
+    .btn-primary { background: #3b82f6; width: 100%; }
+    .btn-admin { background: #f59e0b; width: 100%; }
+    .btn-danger { background: #ef4444; width: 100%; margin-top: 8px; }
+    .btn-ingreso { background: #10b981; }
+    .btn-salida { background: #ef4444; }
+    .btn-excel { background: #10b981; width: 100%; margin-top: 10px; font-weight: bold; padding: 11px; }
+    .btn-info { background: #6366f1; width: 100%; margin-top: 8px; }
+    .btn-sm { padding: 6px 10px; font-size: 11px; }
+
+    /* Botones de Selección Directa de Turno */
+    .btn-turno-diurno {
+      background: #10b981;
+      color: #ffffff;
+      width: 100%;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      border-radius: 10px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+    }
+    .btn-turno-nocturno {
+      background: #ef4444;
+      color: #ffffff;
+      width: 100%;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      border-radius: 10px;
+      text-transform: uppercase;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+    }
+
+    .filtro-fechas { display: flex; gap: 8px; margin-bottom: 8px; }
+    .filtro-fechas div { flex: 1; }
+
+    .table-container { 
+      margin-top: 10px; 
+      overflow-x: auto; 
+      flex-grow: 1; /* Hace que crezca y ocupe el espacio vertical disponible */
+      max-height: none; /* Sin límite fijo para que abarque toda la altura libre */
+      width: 100%; 
+      border-radius: 6px;
+      border: 1px solid #1e293b;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; }
+    th, td { padding: 8px; border-bottom: 1px solid #1e293b; white-space: nowrap; }
+    th { color: #38bdf8; background: #0f172a; position: sticky; top: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Pantalla de Carga -->
+  <div id="loader-screen">
+    <img src="Logo_form_ppu.jpg" alt="Logo Gama 85" class="loader-logo">
+    <div class="loader-title">CONTROL VEHICULAR - GAMA 85</div>
+    <div class="progress-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="progress-text" id="progressText">Cargando 0%</div>
+  </div>
+
+  <!-- 2. Menú Principal -->
+  <div class="card" id="menuAccesoCard">
+    <div class="main-logo-container">
+      <img src="Logo_form_ppu.jpg" alt="Logo Gama 85" class="main-logo">
+    </div>
+
+    <div style="width: 100%;">
+      <p style="text-align: center; color: #94a3b8; font-size: 14px; margin-bottom: 12px;">Seleccione su nivel de acceso</p>
+      <button class="btn-primary" style="margin-bottom: 10px;" onclick="mostrarPantalla('loginGuardiaCard')">CONTROL VEHICULAR</button>
+      <button class="btn-admin" onclick="mostrarPantalla('loginAdminCard')">ADMIN LOGIN</button>
+    </div>
+  </div>
+
+  <!-- 3. Login Guardias (Botones directos Servicio Diurno / Nocturno) -->
+  <div class="card" id="loginGuardiaCard">
+    <div style="width: 100%;">
+      <h2>TIPO DE SERVICIO</h2>
+    </div>
+
+    <div style="width: 100%; margin: auto 0;">
+      <button class="btn-turno-diurno" onclick="iniciarSesionGuardiaDirecto('Servicio Diurno')">
+        ☀️ Servicio Diurno
+      </button>
+
+      <button class="btn-turno-nocturno" onclick="iniciarSesionGuardiaDirecto('Servicio Nocturno')">
+        🌙 Servicio Nocturno
+      </button>
+    </div>
+
+    <div style="width: 100%;">
+      <button class="btn-danger" onclick="mostrarPantalla('menuAccesoCard')">Volver</button>
+    </div>
+  </div>
+
+  <!-- 4. Login Administradores -->
+  <div class="card" id="loginAdminCard">
+    <div style="width: 100%;">
+      <h3>ACCESO ADMINISTRADOR</h3>
+    </div>
+    <div style="width: 100%; margin: auto 0;">
+      <div class="form-group">
+        <label>Administrador</label>
+        <select id="loginAdminUser"></select>
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="loginAdminPass" placeholder="Ingrese contraseña">
+      </div>
+    </div>
+    <div style="width: 100%;">
+      <button class="btn-admin" onclick="iniciarSesionAdmin()">Entrar al Panel</button>
+      <button class="btn-danger" style="margin-top: 8px;" onclick="mostrarPantalla('menuAccesoCard')">Volver</button>
+    </div>
+  </div>
+
+  <!-- 5. Panel de Administrador -->
+  <div class="card" id="adminPanelCard">
+    <div style="width: 100%;">
+      <h3>PANEL DE ADMINISTRACIÓN</h3>
+      <p style="text-align: center; color: #f59e0b; font-size: 12px; margin-bottom: 12px;" id="adminActivoLabel"></p>
+
+      <!-- Crear Nuevo Administrador -->
+      <div class="accordion-card" id="accCrearUsuario">
+        <div class="accordion-header" onclick="toggleAcordeon('accCrearUsuario')">
+          <div class="accordion-title-container">
+            <svg class="accordion-icon" style="color: #38bdf8;" viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span style="color: #38bdf8; font-weight: bold; font-size: 12px;">Crear Administrador Secundario</span>
+          </div>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-content" id="boxCrearUsuario">
+          <div class="form-group">
+            <label>Nombre del Administrador</label>
+            <input type="text" id="nuevoNombre" placeholder="Nombre completo" oninput="formatearNombrePropio(this)">
+          </div>
+          
+          <div class="form-group">
+            <label>Contraseña</label>
+            <input type="password" id="nuevoPass" placeholder="Contraseña">
+          </div>
+
+          <div class="form-group">
+            <label>Permisos Autorizados:</label>
+            <div class="permisos-container">
+              <label class="permiso-item">
+                <input type="checkbox" id="permCrearUsuarios" checked> Crear y Gestionar Usuarios
+              </label>
+              <label class="permiso-item">
+                <input type="checkbox" id="permVerHistorico" checked> Ver e Interactuar con Histórico / Excel
+              </label>
+            </div>
+          </div>
+
+          <button class="btn-admin" style="margin-bottom: 6px;" onclick="crearUsuario()">+ Crear Administrador</button>
+        </div>
+      </div>
+
+      <!-- Usuarios Registrados -->
+      <div class="accordion-card" id="accUsuariosReg">
+        <div class="accordion-header" onclick="toggleAcordeon('accUsuariosReg')">
+          <div class="accordion-title-container">
+            <svg class="accordion-icon" style="color: #cbd5e1;" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+            <span style="color: #cbd5e1; font-weight: bold; font-size: 12px;">Administradores Registrados</span>
+          </div>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-content">
+          <div class="table-container" style="margin-top: 0; max-height: 140px; flex-grow: 0;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Rol</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tablaUsuariosAdmin"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 100%;">
+      <button class="btn-info" id="btnIrHistorico" style="margin-top: 10px;" onclick="abrirHistoricoSiAutorizado()">🔍 Consultar Base de Datos General</button>
+      <button class="btn-danger" style="margin-top: 8px;" onclick="cerrarSesionAdmin()">Cerrar Sesión Admin</button>
+    </div>
+  </div>
+
+  <!-- 6. Formulario Principal de Registro Vehicular -->
+  <div class="card" id="mainCard">
+    <div style="width: 100%;">
+      <h2>Control Vehicular</h2>
+      
+      <div class="turno-subtitulo-container">
+        <span class="turno-subtitulo-text" id="guardiaFijo"></span>
+      </div>
+
+      <div class="form-group">
+        <label>Patente del Vehículo</label>
+        <input type="text" id="patente" placeholder="EJ: AB - 1234" oninput="procesarPatente()" style="text-transform: uppercase;">
+      </div>
+
+      <div class="form-group">
+        <label>Nombre Conductor</label>
+        <input type="text" id="nombreUsuario" placeholder="Nombre completo" oninput="formatearNombrePropio(this)">
+      </div>
+
+      <div class="btn-group" id="contenedorBotonesAccion">
+        <button class="btn-ingreso" id="btnMarcarIngreso" onclick="registrarMovimiento('Ingreso')">Marcar Ingreso</button>
+        <button class="btn-salida" id="btnMarcarSalida" onclick="registrarMovimiento('Salida')" style="display:none;">Marcar Salida</button>
+      </div>
+
+      <div class="table-container" style="max-height: 150px; flex-grow: 0;">
+        <table>
+          <thead>
+            <tr>
+              <th>Patente</th>
+              <th>Nombre</th>
+              <th>Ingreso</th>
+              <th>Salida</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="width: 100%;">
+      <button class="btn-excel" onclick="exportarExcelPlanilla(registrosTurno, 'Turno_Activo')">📊 Descargar Excel del Turno</button>
+      <button class="btn-danger" style="margin-top: 8px;" onclick="cerrarTurnoOVolver()">Salir</button>
+    </div>
+  </div>
+
+  <!-- 7. MÓDULO CONSULTA BASE DE DATOS GENERAL -->
+  <div class="card" id="historicoCard">
+    <div style="width: 100%;">
+      <h3>BASE DE DATOS GENERAL</h3>
+      <p style="text-align: center; color: #94a3b8; font-size: 11px; margin-bottom: 10px;">Registro único guardado en memoria del sistema</p>
+
+      <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+        <button class="btn-primary btn-sm" onclick="filtrarHoy()">Filtrar Solo Hoy</button>
+        <button class="btn-admin btn-sm" onclick="cargarHistóricoCompleto()">Ver Todos</button>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 6px;">
+        <input type="text" id="inputBuscarPatenteNombre" placeholder="Buscar por Patente o Conductor..." oninput="procesarBusquedaPatente(this)" style="text-transform: uppercase;">
+      </div>
+
+      <div class="filtro-fechas">
+        <div>
+          <label>Desde Fecha</label>
+          <input type="date" id="fechaDesde">
+        </div>
+        <div>
+          <label>Hasta Fecha</label>
+          <input type="date" id="fechaHasta">
+        </div>
+      </div>
+      <button class="btn-primary" style="padding: 7px; font-size: 12px;" onclick="filtrarPorRango()">Filtrar por Rango</button>
+    </div>
+
+    <!-- Esta tabla ahora se estira ocupando todo el espacio disponible -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Patente</th>
+            <th>Nombre</th>
+            <th>Ingreso</th>
+            <th>Salida</th>
+            <th>Turno</th>
+          </tr>
+        </thead>
+        <tbody id="tablaHistoricaBody"></tbody>
+      </table>
+    </div>
+
+    <div style="width: 100%;">
+      <button class="btn-excel" style="font-size: 12px;" onclick="exportarExcelPlanilla(listaHistoricoFiltrada, 'Registro_Vehicular')">📥 Descargar Planilla Completa (.xlsx)</button>
+      <button class="btn-danger" style="margin-top: 6px;" onclick="volverAlPanelTrabajo()">Volver al Panel Admin</button>
+    </div>
+  </div>
+
+<script>
+  const SUPER_ADMIN_NOMBRE = "Gama 85";
+
+  let turnoActual = "";
+  let adminActual = "";
+  let esSuperAdmin = false;
+  let permisosAdminActual = { crearUsuarios: true, verHistorico: true };
+  let temporizadorTurno = null;
+
+  let baseAdmins = JSON.parse(localStorage.getItem("baseAdminsR85_v16")) || { 
+    "Gama 85": { pass: "admin123", esSuper: true, permisos: { crearUsuarios: true, verHistorico: true } } 
+  };
+  let basePatentes = JSON.parse(localStorage.getItem("basePatentesR85_v16")) || {};
+  
+  let baseHistoricaBD = JSON.parse(localStorage.getItem("baseHistoricaR85_v16")) || [];
+  let registrosTurno = JSON.parse(localStorage.getItem("registrosTurnoActivo_v16")) || [];
+
+  window.onload = function() {
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 2;
+      document.getElementById("progressBar").style.width = progress + "%";
+      document.getElementById("progressText").textContent = `Cargando ${progress}%`;
+      
+      if (progress >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          const loader = document.getElementById("loader-screen");
+          loader.style.opacity = "0";
+          setTimeout(() => {
+            loader.style.display = "none";
+            mostrarPantalla('menuAccesoCard');
+            asegurarCuentaGama85();
+            cargarSelectores();
+          }, 500);
+        }, 400);
+      }
+    }, 15);
+  };
+
+  function asegurarCuentaGama85() {
+    baseAdmins["Gama 85"] = { 
+      pass: "admin123", 
+      esSuper: true, 
+      permisos: { crearUsuarios: true, verHistorico: true } 
+    };
+    localStorage.setItem("baseAdminsR85_v16", JSON.stringify(baseAdmins));
+  }
+
+  function toggleAcordeon(cardId) {
+    const card = document.getElementById(cardId);
+    const estaActiva = card.classList.contains('active');
+
+    document.querySelectorAll('.accordion-card').forEach(c => {
+      c.classList.remove('active');
+    });
+
+    if (!estaActiva) {
+      card.classList.add('active');
+    }
+  }
+
+  function formatearNombrePropio(input) {
+    let palabras = input.value.split(" ");
+    for (let i = 0; i < palabras.length; i++) {
+      if (palabras[i].length > 0) {
+        palabras[i] = palabras[i][0].toUpperCase() + palabras[i].substr(1).toLowerCase();
+      }
+    }
+    input.value = palabras.join(" ");
+  }
+
+  function mostrarPantalla(id) {
+    document.querySelectorAll('.card').forEach(c => c.style.display = 'none');
+    
+    const targetCard = document.getElementById(id);
+    targetCard.style.display = 'flex';
+
+    if (id === 'mainCard') {
+      actualizarTabla();
+      evaluarEstadoPatenteInput();
+      iniciarControlHorarioTurno();
+    } else {
+      if (temporizadorTurno && id !== 'historicoCard') clearInterval(temporizadorTurno);
+    }
+  }
+
+  function iniciarControlHorarioTurno() {
+    if (temporizadorTurno) clearInterval(temporizadorTurno);
+    temporizadorTurno = setInterval(() => {
+      const ahora = new Date();
+      const hora = ahora.getHours();
+      const minuto = ahora.getMinutes();
+
+      if (turnoActual === "Servicio Diurno" && hora === 20 && minuto === 0) {
+        alert("El Servicio Diurno ha finalizado automáticamente (20:00 hrs). Cerrando sesión.");
+        cerrarTurnoOVolverForce();
+      }
+      else if (turnoActual === "Servicio Nocturno" && hora === 8 && minuto === 0) {
+        alert("El Servicio Nocturno ha finalizado automáticamente (08:00 hrs). Cerrando sesión.");
+        cerrarTurnoOVolverForce();
+      }
+    }, 30000);
+  }
+
+  function cargarSelectores() {
+    asegurarCuentaGama85();
+
+    const selA = document.getElementById("loginAdminUser");
+    selA.innerHTML = '<option value="">-- Seleccionar Admin --</option>';
+    for (let a in baseAdmins) selA.innerHTML += `<option value="${a}">${a}</option>`;
+
+    actualizarTablaUsuariosAdmin();
+  }
+
+  function iniciarSesionGuardiaDirecto(nombreTurno) {
+    adminActual = ""; 
+    turnoActual = nombreTurno;
+    
+    document.getElementById("guardiaFijo").textContent = `${turnoActual}`;
+    mostrarPantalla('mainCard');
+  }
+
+  function iniciarSesionAdmin() {
+    const user = document.getElementById("loginAdminUser").value;
+    const pass = document.getElementById("loginAdminPass").value;
+    if (!user) return alert("Selecciona un usuario administrador.");
+
+    const datosAdmin = baseAdmins[user];
+    const passValida = typeof datosAdmin === 'object' ? datosAdmin.pass : datosAdmin;
+
+    if (pass === passValida) {
+      adminActual = user;
+      esSuperAdmin = (user === SUPER_ADMIN_NOMBRE || (datosAdmin && datosAdmin.esSuper));
+
+      if (esSuperAdmin) {
+        permisosAdminActual = { crearUsuarios: true, verHistorico: true };
+      } else {
+        permisosAdminActual = datosAdmin.permisos || { crearUsuarios: false, verHistorico: false };
+      }
+
+      document.getElementById("adminActivoLabel").textContent = `Sesión: ${adminActual} ${esSuperAdmin ? '(SuperAdmin)' : ''}`;
+      document.getElementById("loginAdminPass").value = "";
+
+      aplicarRestriccionesAdmin();
+      mostrarPantalla('adminPanelCard');
+    } else {
+      alert("Contraseña de Administrador incorrecta.");
+    }
+  }
+
+  function aplicarRestriccionesAdmin() {
+    const accCrear = document.getElementById("accCrearUsuario");
+    const btnHist = document.getElementById("btnIrHistorico");
+
+    if (esSuperAdmin || permisosAdminActual.crearUsuarios) {
+      accCrear.style.display = "block";
+    } else {
+      accCrear.style.display = "none";
+    }
+
+    if (esSuperAdmin || permisosAdminActual.verHistorico) {
+      btnHist.style.display = "block";
+    } else {
+      btnHist.style.display = "none";
+    }
+  }
+
+  function abrirHistoricoSiAutorizado() {
+    if (esSuperAdmin || permisosAdminActual.verHistorico) {
+      mostrarPantalla('historicoCard'); 
+      cargarHistóricoCompleto();
+    } else {
+      alert("No tienes autorización para consultar la Base de Datos Histórica.");
+    }
+  }
+
+  function crearUsuario() {
+    if (!esSuperAdmin && !permisosAdminActual.crearUsuarios) {
+      return alert("No tienes permisos para crear nuevos administradores.");
+    }
+
+    const nombre = document.getElementById("nuevoNombre").value.trim();
+    const pass = document.getElementById("nuevoPass").value.trim();
+
+    if (!nombre) return alert("Ingresa un nombre de usuario.");
+    if (!pass) return alert("Ingresa una contraseña para el administrador.");
+
+    const permCrear = document.getElementById("permCrearUsuarios").checked;
+    const permVer = document.getElementById("permVerHistorico").checked;
+
+    baseAdmins[nombre] = { 
+      pass: pass, 
+      esSuper: false,
+      permisos: {
+        crearUsuarios: permCrear,
+        verHistorico: permVer
+      }
+    }; 
+    localStorage.setItem("baseAdminsR85_v16", JSON.stringify(baseAdmins));
+
+    alert(`¡Administrador "${nombre}" creado con éxito!`);
+    document.getElementById("nuevoNombre").value = "";
+    document.getElementById("nuevoPass").value = "";
+    cargarSelectores();
+  }
+
+  function eliminarUsuario(nombre) {
+    if (!esSuperAdmin && !permisosAdminActual.crearUsuarios) {
+      return alert("No tienes permisos para eliminar administradores.");
+    }
+    if (nombre === SUPER_ADMIN_NOMBRE) return alert("No se puede eliminar la cuenta de SuperAdministrador 'Gama 85'.");
+    
+    if (confirm(`¿Eliminar al administrador ${nombre}?`)) {
+      delete baseAdmins[nombre];
+      localStorage.setItem("baseAdminsR85_v16", JSON.stringify(baseAdmins));
+      cargarSelectores();
+    }
+  }
+
+  function actualizarTablaUsuariosAdmin() {
+    const tbody = document.getElementById("tablaUsuariosAdmin");
+    tbody.innerHTML = "";
+    for (let a in baseAdmins) {
+      const eSuper = (a === SUPER_ADMIN_NOMBRE);
+      tbody.innerHTML += `<tr><td>${a}</td><td>${eSuper ? 'SuperAdmin' : 'Admin'}</td><td>${eSuper ? '-' : `<button class="btn-danger btn-sm" onclick="eliminarUsuario('${a}')">Eliminar</button>`}</td></tr>`;
+    }
+  }
+
+  function formatearPatenteTexto(valor, inputElement) {
+    let limpia = valor.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    let esCompleta = false;
+    let formateada = limpia;
+
+    if (/^[A-Z]{4}\d{2}$/.test(limpia)) {
+      formateada = limpia.replace(/^([A-Z]{4})(\d{2})$/, '$1 - $2');
+      esCompleta = true;
+    } else if (/^[A-Z]{2}\d{4}$/.test(limpia)) {
+      formateada = limpia.replace(/^([A-Z]{2})(\d{4})$/, '$1 - $2');
+      esCompleta = true;
+    } else if (/^[A-Z]{3}\d{3}$/.test(limpia)) {
+      formateada = limpia.replace(/^([A-Z]{3})(\d{3})$/, '$1 - $2');
+      esCompleta = true;
+    }
+
+    if (esCompleta && inputElement) {
+      setTimeout(() => {
+        inputElement.blur(); // Oculta el teclado en móviles
+      }, 100);
+    }
+
+    return formateada;
+  }
+
+  function procesarPatente() {
+    const input = document.getElementById("patente");
+    const valorFormateado = formatearPatenteTexto(input.value, input);
+    input.value = valorFormateado;
+
+    if (basePatentes[valorFormateado]) {
+      document.getElementById("nombreUsuario").value = basePatentes[valorFormateado];
+    }
+
+    evaluarEstadoPatenteInput();
+  }
+
+  function procesarBusquedaPatente(input) {
+    input.value = formatearPatenteTexto(input.value, null);
+    filtrarPorPatenteNombre();
+  }
+
+  function evaluarEstadoPatenteInput() {
+    const patenteVal = document.getElementById("patente").value.trim();
+    const btnIngreso = document.getElementById("btnMarcarIngreso");
+    const btnSalida = document.getElementById("btnMarcarSalida");
+
+    if (!patenteVal) {
+      btnIngreso.style.display = "block";
+      btnSalida.style.display = "none";
+      return;
+    }
+
+    let enRecinto = registrosTurno.find(r => r.patente === patenteVal && (!r.horaSalida || r.horaSalida === "En recinto"));
+
+    if (enRecinto) {
+      btnIngreso.style.display = "none";
+      btnSalida.style.display = "block";
+      if (enRecinto.nombre) {
+        document.getElementById("nombreUsuario").value = enRecinto.nombre;
+      }
+    } else {
+      btnIngreso.style.display = "block";
+      btnSalida.style.display = "none";
+    }
+  }
+
+  function registrarMovimiento(tipo) {
+    const patente = document.getElementById("patente").value.trim();
+    const nombre = document.getElementById("nombreUsuario").value.trim();
+    const fechaObj = new Date();
+    const fechaISO = fechaObj.toISOString().split('T')[0];
+    const fechaTxt = fechaObj.toLocaleDateString();
+    const hora = fechaObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    if (!patente) return alert("Ingrese la patente del vehículo.");
+
+    basePatentes[patente] = nombre || "Desconocido";
+    localStorage.setItem("basePatentesR85_v16", JSON.stringify(basePatentes));
+
+    let registroActivo = registrosTurno.find(r => r.patente === patente && (!r.horaSalida || r.horaSalida === "En recinto"));
+
+    if (tipo === 'Ingreso') {
+      if (!nombre) return alert("Ingrese el nombre del conductor para el ingreso.");
+      if (registroActivo) {
+        return alert(`El vehículo con patente ${patente} ya se encuentra registrado "En recinto".`);
+      }
+      let nuevoReg = { fechaISO, fecha: fechaTxt, patente, nombre, horaIngreso: hora, horaSalida: "En recinto", turno: turnoActual };
+      registrosTurno.push(nuevoReg);
+      baseHistoricaBD.push(nuevoReg);
+    } else {
+      if (registroActivo) {
+        registroActivo.horaSalida = hora;
+        let hItem = baseHistoricaBD.find(h => h.patente === patente && h.fechaISO === registroActivo.fechaISO && (h.horaSalida === "En recinto" || !h.horaSalida));
+        if (hItem) hItem.horaSalida = hora;
+      } else {
+        let hAbierto = baseHistoricaBD.find(h => h.patente === patente && (h.horaSalida === "En recinto" || !h.horaSalida));
+        if (hAbierto) {
+          hAbierto.horaSalida = hora;
+          registrosTurno.push(hAbierto);
+        } else {
+          let nuevoReg = { fechaISO, fecha: fechaTxt, patente, nombre: nombre || "Desconocido", horaIngreso: "--", horaSalida: hora, turno: turnoActual };
+          registrosTurno.push(nuevoReg);
+          baseHistoricaBD.push(nuevoReg);
+        }
+      }
+    }
+
+    localStorage.setItem("registrosTurnoActivo_v16", JSON.stringify(registrosTurno));
+    localStorage.setItem("baseHistoricaR85_v16", JSON.stringify(baseHistoricaBD));
+
+    actualizarTabla();
+    document.getElementById("patente").value = "";
+    document.getElementById("nombreUsuario").value = "";
+    evaluarEstadoPatenteInput();
+  }
+
+  function actualizarTabla() {
+    const tbody = document.getElementById("tablaBody");
+    tbody.innerHTML = "";
+    registrosTurno.forEach(r => {
+      let estadoSalida = (r.horaSalida && r.horaSalida !== "En recinto") ? r.horaSalida : '<span style="color: #38bdf8; font-weight: bold;">En recinto</span>';
+      tbody.innerHTML += `<tr><td>${r.patente}</td><td>${r.nombre}</td><td>${r.horaIngreso}</td><td>${estadoSalida}</td></tr>`;
+    });
+  }
+
+  let listaHistoricoFiltrada = [];
+
+  function cargarHistóricoCompleto() {
+    listaHistoricoFiltrada = [...baseHistoricaBD];
+    document.getElementById("inputBuscarPatenteNombre").value = "";
+    renderizarTablaHistorica();
+  }
+
+  function filtrarHoy() {
+    const hoyISO = new Date().toISOString().split('T')[0];
+    listaHistoricoFiltrada = baseHistoricaBD.filter(h => h.fechaISO === hoyISO);
+    renderizarTablaHistorica();
+  }
+
+  function filtrarPorRango() {
+    const desde = document.getElementById("fechaDesde").value;
+    const hasta = document.getElementById("fechaHasta").value;
+    if (!desde || !hasta) return alert("Seleccione ambas fechas (Desde y Hasta).");
+    listaHistoricoFiltrada = baseHistoricaBD.filter(h => h.fechaISO >= desde && h.fechaISO <= hasta);
+    renderizarTablaHistorica();
+  }
+
+  function filtrarPorPatenteNombre() {
+    const query = document.getElementById("inputBuscarPatenteNombre").value.trim().toUpperCase();
+    if (!query) {
+      listaHistoricoFiltrada = [...baseHistoricaBD];
+    } else {
+      listaHistoricoFiltrada = baseHistoricaBD.filter(h => 
+        (h.patente && h.patente.toUpperCase().includes(query)) || 
+        (h.nombre && h.nombre.toUpperCase().includes(query))
+      );
+    }
+    renderizarTablaHistorica();
+  }
+
+  function renderizarTablaHistorica() {
+    const tbody = document.getElementById("tablaHistoricaBody");
+    tbody.innerHTML = "";
+    if (listaHistoricoFiltrada.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8;">No se encontraron registros.</td></tr>`;
+      return;
+    }
+    listaHistoricoFiltrada.forEach(h => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${h.fecha}</td>
+          <td><b>${h.patente}</b></td>
+          <td>${h.nombre}</td>
+          <td>${h.horaIngreso}</td>
+          <td>${h.horaSalida || 'En recinto'}</td>
+          <td>${h.turno || '--'}</td>
+        </tr>`;
+    });
+  }
+
+  function exportarExcelPlanilla(datosArray, prefijoNombre) {
+    if (!datosArray || datosArray.length === 0) {
+      return alert("No hay datos disponibles para exportar.");
+    }
+
+    const ahora = new Date();
+    const anio = ahora.getFullYear();
+    const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+    const dia = String(ahora.getDate()).padStart(2, '0');
+    
+    const fechaHoy = `${anio}-${mes}-${dia}`;
+    const nombreArchivoFinal = `${prefijoNombre}_${fechaHoy}.xlsx`;
+
+    const encabezados = ["FECHA", "PATENTE", "NOMBRE", "INGRESO", "SALIDA", "TURNO"];
+    const filasMatriz = [encabezados];
+
+    datosArray.forEach(item => {
+      filasMatriz.push([
+        item.fecha || "",
+        item.patente || "",
+        item.nombre || "",
+        item.horaIngreso || "--",
+        item.horaSalida || "En recinto",
+        item.turno || ""
+      ]);
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(filasMatriz);
+
+    const estiloEncabezado = {
+      font: { name: "Segoe UI", bold: true, sz: 11, color: { rgb: "000000" } },
+      fill: { fgColor: { rgb: "B7D7A8" } },
+      alignment: { horizontal: "center", vertical: "center" },
+      border: {
+        top: { style: "thin", color: { rgb: "000000" } },
+        bottom: { style: "thin", color: { rgb: "000000" } },
+        left: { style: "thin", color: { rgb: "000000" } },
+        right: { style: "thin", color: { rgb: "000000" } }
+      }
+    };
+
+    const estiloIzquierda = {
+      font: { name: "Segoe UI", sz: 10, color: { rgb: "000000" } },
+      alignment: { horizontal: "left", vertical: "center" },
+      border: {
+        top: { style: "thin", color: { rgb: "000000" } },
+        bottom: { style: "thin", color: { rgb: "000000" } },
+        left: { style: "thin", color: { rgb: "000000" } },
+        right: { style: "thin", color: { rgb: "000000" } }
+      }
+    };
+
+    const estiloCentrado = {
+      font: { name: "Segoe UI", sz: 10, color: { rgb: "000000" } },
+      alignment: { horizontal: "center", vertical: "center" },
+      border: {
+        top: { style: "thin", color: { rgb: "000000" } },
+        bottom: { style: "thin", color: { rgb: "000000" } },
+        left: { style: "thin", color: { rgb: "000000" } },
+        right: { style: "thin", color: { rgb: "000000" } }
+      }
+    };
+
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!worksheet[cell_address]) continue;
+        
+        if (R === 0) {
+          worksheet[cell_address].s = estiloEncabezado;
+        } else {
+          if (C === 3 || C === 4) {
+            worksheet[cell_address].s = estiloCentrado;
+          } else {
+            worksheet[cell_address].s = estiloIzquierda;
+          }
+        }
+      }
+    }
+
+    const colWidths = encabezados.map((hdr, cIdx) => {
+      let maxLen = hdr.length;
+      datosArray.forEach(row => {
+        const val = filasMatriz.slice(1).map(r => r[cIdx] ? r[cIdx].toString() : "");
+        val.forEach(v => {
+          if (v.length > maxLen) maxLen = v.length;
+        });
+      });
+      return { wch: Math.max(maxLen + 4, 12) };
+    });
+
+    worksheet['!cols'] = colWidths;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Hoja 1");
+
+    XLSX.writeFile(workbook, nombreArchivoFinal);
+  }
+
+  function volverAlPanelTrabajo() {
+    if (adminActual !== "") {
+      mostrarPantalla('adminPanelCard');
+    } else {
+      mostrarPantalla('mainCard');
+    }
+  }
+
+  function cerrarTurnoOVolver() {
+    if (confirm("¿Estás seguro de salir de la pantalla de control?")) {
+      cerrarTurnoOVolverForce();
+    }
+  }
+
+  function cerrarTurnoOVolverForce() {
+    if (temporizadorTurno) clearInterval(temporizadorTurno);
+    if (adminActual !== "") {
+      mostrarPantalla('adminPanelCard');
+    } else {
+      turnoActual = "";
+      mostrarPantalla('menuAccesoCard');
+    }
+  }
+
+  function cerrarSesionAdmin() {
+    adminActual = "";
+    document.getElementById("loginAdminPass").value = "";
+    document.getElementById("loginAdminUser").value = "";
+    mostrarPantalla('menuAccesoCard');
+  }
+</script>
+</body>
+</html>
